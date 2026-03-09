@@ -142,57 +142,57 @@ def build_resume_pdf(sections: dict, output_path: str):
     doc = SimpleDocTemplate(
         output_path,
         pagesize=letter,
-        rightMargin=0.65*inch,
-        leftMargin=0.65*inch,
-        topMargin=0.6*inch,
-        bottomMargin=0.6*inch
+        rightMargin=0.55*inch,
+        leftMargin=0.55*inch,
+        topMargin=0.45*inch,
+        bottomMargin=0.45*inch
     )
 
     # ── Styles ──
     accent = colors.HexColor("#1a3a5c")
     light_rule = colors.HexColor("#cccccc")
 
-    name_style = ParagraphStyle("Name", fontSize=22, fontName="Helvetica-Bold",
-                                 textColor=accent, spaceAfter=0, leading=28, alignment=TA_LEFT)
-    contact_style = ParagraphStyle("Contact", fontSize=9.5, fontName="Helvetica",
-                                    textColor=colors.HexColor("#555555"), spaceAfter=8)
-    section_header = ParagraphStyle("SectionHeader", fontSize=10, fontName="Helvetica-Bold",
-                                     textColor=accent, spaceBefore=10, spaceAfter=3,
+    name_style = ParagraphStyle("Name", fontSize=20, fontName="Helvetica-Bold",
+                                 textColor=accent, spaceAfter=0, leading=24, alignment=TA_LEFT)
+    contact_style = ParagraphStyle("Contact", fontSize=9, fontName="Helvetica",
+                                    textColor=colors.HexColor("#555555"), spaceAfter=0)
+    section_header = ParagraphStyle("SectionHeader", fontSize=9, fontName="Helvetica-Bold",
+                                     textColor=accent, spaceBefore=6, spaceAfter=2,
                                      textTransform="uppercase", letterSpacing=1)
-    job_title_style = ParagraphStyle("JobTitle", fontSize=10, fontName="Helvetica-Bold",
-                                      textColor=colors.black, spaceBefore=6, spaceAfter=1)
-    job_meta_style = ParagraphStyle("JobMeta", fontSize=9, fontName="Helvetica-Oblique",
-                                     textColor=colors.HexColor("#555555"), spaceAfter=2)
-    bullet_style = ParagraphStyle("Bullet", fontSize=9, fontName="Helvetica",
-                                   leftIndent=12, firstLineIndent=-8, spaceAfter=2,
-                                   leading=13)
-    body_style = ParagraphStyle("Body", fontSize=9, fontName="Helvetica",
-                                 spaceAfter=4, leading=13)
-    skills_label = ParagraphStyle("SkillsLabel", fontSize=9, fontName="Helvetica-Bold",
-                                   spaceAfter=2)
+    job_title_style = ParagraphStyle("JobTitle", fontSize=9.5, fontName="Helvetica-Bold",
+                                      textColor=colors.black, spaceBefore=4, spaceAfter=1)
+    job_meta_style = ParagraphStyle("JobMeta", fontSize=8.5, fontName="Helvetica-Oblique",
+                                     textColor=colors.HexColor("#555555"), spaceAfter=1)
+    bullet_style = ParagraphStyle("Bullet", fontSize=8.5, fontName="Helvetica",
+                                   leftIndent=10, firstLineIndent=-7, spaceAfter=1,
+                                   leading=12)
+    body_style = ParagraphStyle("Body", fontSize=8.5, fontName="Helvetica",
+                                 spaceAfter=2, leading=12)
+    skills_label = ParagraphStyle("SkillsLabel", fontSize=8.5, fontName="Helvetica-Bold",
+                                   spaceAfter=1)
 
     story = []
 
     # ── Header ──
     story.append(Paragraph("Johnny Trueman", name_style))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 5))
     story.append(Paragraph(
         "JohnnyTrueman@gmail.com &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Augusta, ME &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Remote",
         contact_style
     ))
-    story.append(Spacer(1, 8))
-    story.append(HRFlowable(width="100%", thickness=2, color=accent, spaceAfter=12))
+    story.append(Spacer(1, 5))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=accent, spaceAfter=6))
 
     # ── Summary ──
     if "SUMMARY" in sections:
         story.append(Paragraph("Professional Summary", section_header))
-        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=4))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
         story.append(Paragraph(sections["SUMMARY"], body_style))
 
     # ── Experience ──
     if "EXPERIENCE" in sections:
         story.append(Paragraph("Professional Experience", section_header))
-        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=4))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
 
         exp_text = sections["EXPERIENCE"]
         entries = re.split(r'\n(?=[A-Z][^\n]+\|)', exp_text)
@@ -219,7 +219,7 @@ def build_resume_pdf(sections: dict, output_path: str):
                                 fontName="Helvetica-Oblique",
                                 textColor=colors.HexColor("#555555"),
                                 alignment=TA_RIGHT))]]
-            t = Table(data, colWidths=[4.5*inch, 2.5*inch])
+            t = Table(data, colWidths=[4.8*inch, 2.6*inch])
             t.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'),
                                    ('LEFTPADDING', (0,0), (-1,-1), 0),
                                    ('RIGHTPADDING', (0,0), (-1,-1), 0),
@@ -236,7 +236,7 @@ def build_resume_pdf(sections: dict, output_path: str):
     # ── Skills ──
     if "SKILLS" in sections:
         story.append(Paragraph("Technical Skills", section_header))
-        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=4))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
         for line in sections["SKILLS"].split('\n'):
             line = line.strip().lstrip('-').strip()
             if ':' in line:
@@ -247,7 +247,7 @@ def build_resume_pdf(sections: dict, output_path: str):
 
     # ── Education ──
     story.append(Paragraph("Education & Certifications", section_header))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=4))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
     story.append(Paragraph("B.S. Computer Engineering, University of Maine, 2016", body_style))
     story.append(Paragraph("AWS Solutions Architect Associate (May 2024) &nbsp;|&nbsp; Google Cloud Engineer Associate (November 2021)", body_style))
 
