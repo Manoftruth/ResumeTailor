@@ -69,6 +69,9 @@ Return your response in this EXACT format (use these exact section headers):
 ===COMPANY===
 [company name from job posting]
 
+===EDUCATION===
+[education and certifications exactly as listed in the base resume, one per line]
+
 ===ROLE===
 [job title from job posting]
 """
@@ -182,13 +185,13 @@ def build_resume_pdf(sections: dict, name: str, contact: str, output_path: str):
             else:
                 story.append(Paragraph(line, body_style))
 
-    story.append(Paragraph("Education & Certifications", section_header))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
-    story.append(Paragraph("B.S. Computer Engineering, University of Maine, 2016", body_style))
-    story.append(Paragraph(
-        "AWS Solutions Architect Associate (May 2024) &nbsp;|&nbsp; Google Cloud Engineer Associate (November 2021)",
-        body_style
-    ))
+    if "EDUCATION" in sections:
+        story.append(Paragraph("Education & Certifications", section_header))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
+        for line in sections["EDUCATION"].split('\n'):
+            line = line.strip().lstrip('-').strip()
+            if line:
+                story.append(Paragraph(line, body_style))
 
     doc.build(story)
     print(f"Resume saved: {output_path}")
