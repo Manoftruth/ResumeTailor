@@ -153,7 +153,7 @@ def build_resume_pdf(sections: dict, output_path: str):
     light_rule = colors.HexColor("#cccccc")
 
     name_style = ParagraphStyle("Name", fontSize=22, fontName="Helvetica-Bold",
-                                 textColor=accent, spaceAfter=0, leading=28, alignment=TA_LEFT)
+                                 textColor=accent, spaceAfter=6, alignment=TA_LEFT)
     contact_style = ParagraphStyle("Contact", fontSize=9.5, fontName="Helvetica",
                                     textColor=colors.HexColor("#555555"), spaceAfter=8)
     section_header = ParagraphStyle("SectionHeader", fontSize=10, fontName="Helvetica-Bold",
@@ -175,13 +175,12 @@ def build_resume_pdf(sections: dict, output_path: str):
 
     # ── Header ──
     story.append(Paragraph("Johnny Trueman", name_style))
-    story.append(Spacer(1, 8))
     story.append(Paragraph(
-        "JohnnyTrueman@gmail.com &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Augusta, ME &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Remote",
+        "JohnnyTrueman@gmail.com &nbsp;&nbsp;|&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;|&nbsp;&nbsp; Augusta, ME &nbsp;&nbsp;|&nbsp;&nbsp; Remote",
         contact_style
     ))
-    story.append(Spacer(1, 8))
-    story.append(HRFlowable(width="100%", thickness=2, color=accent, spaceAfter=12))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=2, color=accent, spaceAfter=10))
 
     # ── Summary ──
     if "SUMMARY" in sections:
@@ -267,7 +266,7 @@ def build_cover_letter_pdf(sections: dict, output_path: str):
 
     accent = colors.HexColor("#1a3a5c")
     name_style = ParagraphStyle("Name", fontSize=20, fontName="Helvetica-Bold",
-                                 textColor=accent, spaceAfter=0, leading=26)
+                                 textColor=accent, spaceAfter=6)
     contact_style = ParagraphStyle("Contact", fontSize=9.5, fontName="Helvetica",
                                     textColor=colors.HexColor("#555555"), spaceAfter=8)
     date_style = ParagraphStyle("Date", fontSize=10, fontName="Helvetica",
@@ -280,13 +279,12 @@ def build_cover_letter_pdf(sections: dict, output_path: str):
     story = []
 
     story.append(Paragraph("Johnny Trueman", name_style))
-    story.append(Spacer(1, 8))
     story.append(Paragraph(
-        "JohnnyTrueman@gmail.com &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Augusta, ME",
+        "JohnnyTrueman@gmail.com &nbsp;&nbsp;|&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;|&nbsp;&nbsp; Augusta, ME",
         contact_style
     ))
-    story.append(Spacer(1, 8))
-    story.append(HRFlowable(width="100%", thickness=2, color=accent, spaceAfter=14))
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=2, color=accent, spaceAfter=12))
 
     today = datetime.now().strftime("%B %d, %Y")
     story.append(Paragraph(today, date_style))
