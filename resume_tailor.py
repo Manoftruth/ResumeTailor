@@ -1,96 +1,52 @@
 #!/usr/bin/env python3
-"""
-Resume Tailor — Johnny Trueman
-Usage: python3 resume_tailor.py
-Paste a job posting when prompted. Outputs tailored resume PDF + cover letter PDF.
-"""
 
 import os
-import anthropic
 import re
 import sys
+import argparse
+import anthropic
 from datetime import datetime
+from pathlib import Path
+from pypdf import PdfReader
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 
-# ── Base Resume Data ───────────────────────────────────────────────────────────
-BASE_RESUME = """
-NAME: Johnny Trueman
-EMAIL: JohnnyTrueman@gmail.com
-PHONE: (207) 841-8794
-LOCATION: Augusta, ME (Remote preferred)
 
-SUMMARY:
-Software engineer with 12+ years of experience building full-stack web applications. Expert in Django, React, and Python with proven ability to architect complex data processing systems and lead technical teams delivering mission-critical solutions.
+def extract_resume_text(pdf_path: str) -> str:
+    reader = PdfReader(pdf_path)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    return text.strip()
 
-EXPERIENCE:
 
-RailPod | Lead Software Engineer | September 2024 – December 2025
-- Architected full-stack railway inspection platform using Django REST Framework backend with React/TypeScript frontend, processing terabytes of track geometry data from laser scanners and multi-camera systems
-- Built interactive data visualization system using Highcharts and D3.js, converting legacy SVG charts to JavaScript components via Python Transcrypt for real-time track profile analysis
-- Developed advanced rail profile segmentation algorithms using NumPy/SciPy for automated region identification and implemented FRA compliance curve analysis with sub-meter odometer accuracy
-- Optimized PostgreSQL queries and Django ORM performance, reducing query times by 60% while leading team through architecture decisions and code reviews
-
-VividCloud | Software Engineer | June 2020 – July 2024
-- Developed full-stack solutions using .NET, Java, Python, F#, and C++ for clients in insurance and warehouse automation industries
-- Designed scalable microservices architectures and RESTful APIs optimized for high-volume transaction processing
-- Built data pipelines and automation systems serving high-volume enterprise clients
-
-Abbott Manufacturing | Software Engineer | September 2018 – June 2019
-- Pioneered Manufacturing Software Engineer role, architecting software systems for production line automation
-- Led team of interns with bi-weekly mentoring, establishing coding standards that improved team productivity
-
-Building 36 | Device Engineer | February 2017 – July 2018
-- Designed test procedures for IoT thermostats and Z-Wave devices using Embedded C, ensuring product reliability
-- Developed factory test automation with custom GUI using I2C protocols and Raspberry Pi, reducing validation time by 40%
-
-EDUCATION:
-Bachelor of Science in Computer Engineering, University of Maine, 2016
-
-CERTIFICATIONS:
-- AWS Solutions Architect Associate (May 2024)
-- Google Cloud Engineer Associate (November 2021)
-
-SKILLS:
-Languages: Python, JavaScript/TypeScript, Java, C++, F#, SQL, Embedded C
-Frameworks: Django, Django REST Framework, React, Node.js
-Data: NumPy, SciPy, Pandas, Highcharts, D3.js
-Cloud: AWS, GCP, Docker, CI/CD
-Databases: PostgreSQL, MySQL, MongoDB
-AI/ML: Building autonomous AI agents, LLM integration, Python-based ML pipelines
-
-SIDE PROJECTS:
-- CrapperMapper: Full-stack mobile app (React Native/Expo + Django backend on AWS EC2) with PostGIS, AWS Cognito auth, S3, published to App Store and Google Play
-- OptionsTrader: Autonomous Python trading bot using LLM-based signal judgment, live trading via Tradier API, deployed as systemd service on AWS EC2
-"""
-
-# ── Claude API Call ────────────────────────────────────────────────────────────
-def tailor_resume(job_posting: str) -> dict:
+def tailor_resume(base_resume: str, job_posting: str) -> dict:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        print("❌ ANTHROPIC_API_KEY environment variable not set.")
-        print("   Export it first: export ANTHROPIC_API_KEY=sk-ant-...")
+        print("ERROR: ANTHROPIC_API_KEY environment variable not set.")
+        print("Export it first: export ANTHROPIC_API_KEY=sk-ant-...")
         sys.exit(1)
+
     client = anthropic.Anthropic(api_key=api_key)
 
     prompt = f"""You are a professional resume writer. Given a base resume and a job posting, produce a tailored resume and cover letter.
 
 BASE RESUME:
-{BASE_RESUME}
+{base_resume}
 
 JOB POSTING:
 {job_posting}
 
 Instructions:
 1. Rewrite the Professional Summary (3-4 sentences) to directly match the job's needs
-2. Reorder and reword bullet points to emphasize the most relevant experience — do NOT invent new facts
+2. Reorder and reword bullet points to emphasize the most relevant experience -- do NOT invent new facts
 3. Highlight the most relevant skills for this role
 4. Write a compelling 3-paragraph cover letter (no more, no less)
-5. Keep the cover letter professional but not generic — reference specific things in the job posting
+5. Keep the cover letter professional but not generic -- reference specific things in the job posting
 
 Return your response in this EXACT format (use these exact section headers):
 
@@ -117,15 +73,14 @@ Return your response in this EXACT format (use these exact section headers):
 [job title from job posting]
 """
 
-    print("🤖 Calling Claude to tailor resume...")
+    print("Calling Claude to tailor resume...")
     message = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
 
-    response = message.content[0].text
-    return parse_response(response)
+    return parse_response(message.content[0].text)
 
 
 def parse_response(text: str) -> dict:
@@ -137,8 +92,7 @@ def parse_response(text: str) -> dict:
     return sections
 
 
-# ── PDF Generation ─────────────────────────────────────────────────────────────
-def build_resume_pdf(sections: dict, output_path: str):
+def build_resume_pdf(sections: dict, name: str, contact: str, output_path: str):
     doc = SimpleDocTemplate(
         output_path,
         pagesize=letter,
@@ -148,114 +102,99 @@ def build_resume_pdf(sections: dict, output_path: str):
         bottomMargin=0.45*inch
     )
 
-    # ── Styles ──
     accent = colors.HexColor("#1a3a5c")
     light_rule = colors.HexColor("#cccccc")
 
     name_style = ParagraphStyle("Name", fontSize=20, fontName="Helvetica-Bold",
-                                 textColor=accent, spaceAfter=0, leading=24, alignment=TA_LEFT)
+                                textColor=accent, spaceAfter=0, leading=24, alignment=TA_LEFT)
     contact_style = ParagraphStyle("Contact", fontSize=9, fontName="Helvetica",
-                                    textColor=colors.HexColor("#555555"), spaceAfter=0)
+                                   textColor=colors.HexColor("#555555"), spaceAfter=0)
     section_header = ParagraphStyle("SectionHeader", fontSize=9, fontName="Helvetica-Bold",
-                                     textColor=accent, spaceBefore=6, spaceAfter=2,
-                                     textTransform="uppercase", letterSpacing=1)
+                                    textColor=accent, spaceBefore=6, spaceAfter=2,
+                                    textTransform="uppercase", letterSpacing=1)
     job_title_style = ParagraphStyle("JobTitle", fontSize=9.5, fontName="Helvetica-Bold",
-                                      textColor=colors.black, spaceBefore=4, spaceAfter=1)
-    job_meta_style = ParagraphStyle("JobMeta", fontSize=8.5, fontName="Helvetica-Oblique",
-                                     textColor=colors.HexColor("#555555"), spaceAfter=1)
+                                     textColor=colors.black, spaceBefore=4, spaceAfter=1)
     bullet_style = ParagraphStyle("Bullet", fontSize=8.5, fontName="Helvetica",
-                                   leftIndent=10, firstLineIndent=-7, spaceAfter=1,
-                                   leading=12)
+                                  leftIndent=10, firstLineIndent=-7, spaceAfter=1, leading=12)
     body_style = ParagraphStyle("Body", fontSize=8.5, fontName="Helvetica",
-                                 spaceAfter=2, leading=12)
-    skills_label = ParagraphStyle("SkillsLabel", fontSize=8.5, fontName="Helvetica-Bold",
-                                   spaceAfter=1)
+                                spaceAfter=2, leading=12)
 
     story = []
 
-    # ── Header ──
-    story.append(Paragraph("Johnny Trueman", name_style))
+    story.append(Paragraph(name, name_style))
     story.append(Spacer(1, 5))
-    story.append(Paragraph(
-        "JohnnyTrueman@gmail.com &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Augusta, ME &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Remote",
-        contact_style
-    ))
+    story.append(Paragraph(contact, contact_style))
     story.append(Spacer(1, 5))
     story.append(HRFlowable(width="100%", thickness=1.5, color=accent, spaceAfter=6))
 
-    # ── Summary ──
     if "SUMMARY" in sections:
         story.append(Paragraph("Professional Summary", section_header))
         story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
         story.append(Paragraph(sections["SUMMARY"], body_style))
 
-    # ── Experience ──
     if "EXPERIENCE" in sections:
         story.append(Paragraph("Professional Experience", section_header))
         story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
 
-        exp_text = sections["EXPERIENCE"]
-        entries = re.split(r'\n(?=[A-Z][^\n]+\|)', exp_text)
-
-        for entry in entries:
+        for entry in re.split(r'\n(?=[A-Z][^\n]+\|)', sections["EXPERIENCE"]):
             entry = entry.strip()
             if not entry:
                 continue
             lines = entry.split('\n')
-            header_line = lines[0].strip()
+            parts = [p.strip() for p in lines[0].split('|')]
+            company = parts[0] if len(parts) > 0 else ""
+            title   = parts[1] if len(parts) > 1 else ""
+            dates   = parts[2] if len(parts) > 2 else ""
 
-            # Parse "Company | Title | Dates"
-            parts = [p.strip() for p in header_line.split('|')]
-            if len(parts) >= 3:
-                company, title, dates = parts[0], parts[1], parts[2]
-            elif len(parts) == 2:
-                company, title, dates = parts[0], parts[1], ""
-            else:
-                company, title, dates = header_line, "", ""
-
-            # Company + dates on same line
-            data = [[Paragraph(f"<b>{company}</b> — {title}", job_title_style),
-                     Paragraph(dates, ParagraphStyle("Dates", fontSize=9,
-                                fontName="Helvetica-Oblique",
-                                textColor=colors.HexColor("#555555"),
-                                alignment=TA_RIGHT))]]
-            t = Table(data, colWidths=[4.8*inch, 2.6*inch])
-            t.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'),
-                                   ('LEFTPADDING', (0,0), (-1,-1), 0),
-                                   ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                                   ('BOTTOMPADDING', (0,0), (-1,-1), 2)]))
+            row = [[
+                Paragraph(f"<b>{company}</b> -- {title}", job_title_style),
+                Paragraph(dates, ParagraphStyle("Dates", fontSize=9,
+                          fontName="Helvetica-Oblique",
+                          textColor=colors.HexColor("#555555"),
+                          alignment=TA_RIGHT))
+            ]]
+            t = Table(row, colWidths=[4.8*inch, 2.6*inch])
+            t.setStyle(TableStyle([
+                ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+                ('LEFTPADDING',   (0,0), (-1,-1), 0),
+                ('RIGHTPADDING',  (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ]))
             story.append(t)
 
             for line in lines[1:]:
                 line = line.strip()
                 if line.startswith('- '):
-                    story.append(Paragraph(f"• {line[2:]}", bullet_style))
+                    story.append(Paragraph(f"* {line[2:]}", bullet_style))
                 elif line:
                     story.append(Paragraph(line, bullet_style))
 
-    # ── Skills ──
     if "SKILLS" in sections:
         story.append(Paragraph("Technical Skills", section_header))
         story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
         for line in sections["SKILLS"].split('\n'):
             line = line.strip().lstrip('-').strip()
+            if not line:
+                continue
             if ':' in line:
                 label, rest = line.split(':', 1)
                 story.append(Paragraph(f"<b>{label.strip()}:</b> {rest.strip()}", body_style))
-            elif line:
+            else:
                 story.append(Paragraph(line, body_style))
 
-    # ── Education ──
     story.append(Paragraph("Education & Certifications", section_header))
     story.append(HRFlowable(width="100%", thickness=0.5, color=light_rule, spaceAfter=2))
     story.append(Paragraph("B.S. Computer Engineering, University of Maine, 2016", body_style))
-    story.append(Paragraph("AWS Solutions Architect Associate (May 2024) &nbsp;|&nbsp; Google Cloud Engineer Associate (November 2021)", body_style))
+    story.append(Paragraph(
+        "AWS Solutions Architect Associate (May 2024) &nbsp;|&nbsp; Google Cloud Engineer Associate (November 2021)",
+        body_style
+    ))
 
     doc.build(story)
-    print(f"✅ Resume saved: {output_path}")
+    print(f"Resume saved: {output_path}")
 
 
-def build_cover_letter_pdf(sections: dict, output_path: str):
+def build_cover_letter_pdf(sections: dict, name: str, contact: str, output_path: str):
     doc = SimpleDocTemplate(
         output_path,
         pagesize=letter,
@@ -267,98 +206,123 @@ def build_cover_letter_pdf(sections: dict, output_path: str):
 
     accent = colors.HexColor("#1a3a5c")
     name_style = ParagraphStyle("Name", fontSize=20, fontName="Helvetica-Bold",
-                                 textColor=accent, spaceAfter=0, leading=26)
+                                textColor=accent, spaceAfter=0, leading=26)
     contact_style = ParagraphStyle("Contact", fontSize=9.5, fontName="Helvetica",
-                                    textColor=colors.HexColor("#555555"), spaceAfter=8)
+                                   textColor=colors.HexColor("#555555"), spaceAfter=0)
     date_style = ParagraphStyle("Date", fontSize=10, fontName="Helvetica",
-                                 spaceAfter=16, spaceBefore=20)
+                                spaceAfter=16, spaceBefore=20)
     body_style = ParagraphStyle("Body", fontSize=10.5, fontName="Helvetica",
-                                 leading=16, spaceAfter=12)
+                                leading=16, spaceAfter=12)
     closing_style = ParagraphStyle("Closing", fontSize=10.5, fontName="Helvetica",
-                                    spaceBefore=20, spaceAfter=4)
+                                   spaceBefore=20, spaceAfter=4)
 
     story = []
 
-    story.append(Paragraph("Johnny Trueman", name_style))
+    story.append(Paragraph(name, name_style))
     story.append(Spacer(1, 8))
-    story.append(Paragraph(
-        "JohnnyTrueman@gmail.com &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; (207) 841-8794 &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; Augusta, ME",
-        contact_style
-    ))
+    story.append(Paragraph(contact, contact_style))
     story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=2, color=accent, spaceAfter=14))
 
-    today = datetime.now().strftime("%B %d, %Y")
-    story.append(Paragraph(today, date_style))
+    story.append(Paragraph(datetime.now().strftime("%B %d, %Y"), date_style))
 
     company = sections.get("COMPANY", "the Company")
-    role = sections.get("ROLE", "this position")
-    story.append(Paragraph(f"Re: Application for {role} at {company}", 
-                           ParagraphStyle("Re", fontSize=10.5, fontName="Helvetica-Bold", spaceAfter=16)))
-
+    role    = sections.get("ROLE", "this position")
+    story.append(Paragraph(
+        f"Re: Application for {role} at {company}",
+        ParagraphStyle("Re", fontSize=10.5, fontName="Helvetica-Bold", spaceAfter=16)
+    ))
     story.append(Paragraph(f"Dear Hiring Team at {company},", body_style))
 
     if "COVER_LETTER" in sections:
-        paragraphs = [p.strip() for p in sections["COVER_LETTER"].split('\n\n') if p.strip()]
-        for para in paragraphs:
+        for para in [p.strip() for p in sections["COVER_LETTER"].split('\n\n') if p.strip()]:
             story.append(Paragraph(para.replace('\n', ' '), body_style))
 
     story.append(Paragraph("Sincerely,", closing_style))
     story.append(Spacer(1, 0.4*inch))
-    story.append(Paragraph("Johnny Trueman", body_style))
+    story.append(Paragraph(name, body_style))
 
     doc.build(story)
-    print(f"✅ Cover letter saved: {output_path}")
+    print(f"Cover letter saved: {output_path}")
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
 def main():
+    parser = argparse.ArgumentParser(description="Resume Tailor")
+    parser.add_argument("resume", help="Path to base resume PDF")
+    parser.add_argument("job_posting", nargs="?", help="Path to job posting .txt file (optional -- paste interactively if omitted)")
+    args = parser.parse_args()
+
+    if not Path(args.resume).exists():
+        print(f"ERROR: Resume file not found: {args.resume}")
+        sys.exit(1)
+
     print("=" * 60)
-    print("  RESUME TAILOR — Johnny Trueman")
+    print("  RESUME TAILOR")
     print("=" * 60)
-    print()
-    print("Paste the job posting below.")
-    print("When done, enter a line with just '---' and press Enter.")
     print()
 
-    lines = []
-    while True:
-        try:
-            line = input()
-            if line.strip() == "---":
-                break
-            lines.append(line)
-        except EOFError:
+    print(f"Reading resume: {args.resume}")
+    base_resume = extract_resume_text(args.resume)
+
+    # Pull name and contact line from top of extracted PDF text
+    pdf_lines = [l.strip() for l in base_resume.splitlines() if l.strip()]
+    name = pdf_lines[0] if pdf_lines else "Applicant"
+    contact = ""
+    for line in pdf_lines[1:4]:
+        if "@" in line or re.search(r'\d{3}.*\d{4}', line):
+            contact = line
             break
 
-    job_posting = '\n'.join(lines).strip()
+    if args.job_posting:
+        if not Path(args.job_posting).exists():
+            print(f"ERROR: Job posting file not found: {args.job_posting}")
+            sys.exit(1)
+        with open(args.job_posting, "r") as f:
+            job_posting = f.read().strip()
+        print(f"Reading job posting: {args.job_posting}")
+    else:
+        print("Paste the job posting below.")
+        print("When done, enter a line with just '---' and press Enter.")
+        print()
+        pasted_lines = []
+        while True:
+            try:
+                line = input()
+                if line.strip() == "---":
+                    break
+                pasted_lines.append(line)
+            except EOFError:
+                break
+        job_posting = '\n'.join(pasted_lines).strip()
+
     if not job_posting:
         print("No job posting provided. Exiting.")
         sys.exit(1)
 
     print()
-    sections = tailor_resume(job_posting)
+    sections = tailor_resume(base_resume, job_posting)
 
     if not sections:
-        print("❌ Failed to parse Claude's response. Raw output saved to debug.txt")
+        print("ERROR: Failed to parse Claude's response.")
         sys.exit(1)
 
-    company = sections.get("COMPANY", "Company").replace(" ", "_").replace("/", "-")
-    role = sections.get("ROLE", "Role").replace(" ", "_").replace("/", "-")
+    output_dir = Path(args.resume).parent / "outputs"
+    output_dir.mkdir(exist_ok=True)
+
+    company   = sections.get("COMPANY", "Company").replace(" ", "_").replace("/", "-")
+    role      = sections.get("ROLE", "Role").replace(" ", "_").replace("/", "-")
     timestamp = datetime.now().strftime("%Y%m%d")
     base_name = f"{timestamp}_{company}_{role}"
 
-    resume_path = f"{base_name}_Resume.pdf"
-    cover_path = f"{base_name}_CoverLetter.pdf"
+    resume_path = output_dir / f"{base_name}_Resume.pdf"
+    cover_path  = output_dir / f"{base_name}_CoverLetter.pdf"
 
-    build_resume_pdf(sections, resume_path)
-    build_cover_letter_pdf(sections, cover_path)
+    build_resume_pdf(sections, name, contact, str(resume_path))
+    build_cover_letter_pdf(sections, name, contact, str(cover_path))
 
     print()
-    print(f"📄 Resume:      {resume_path}")
-    print(f"📝 Cover Letter: {cover_path}")
-    print()
-    print("Done!")
+    print(f"Resume:       outputs/{base_name}_Resume.pdf")
+    print(f"Cover Letter: outputs/{base_name}_CoverLetter.pdf")
 
 
 if __name__ == "__main__":
